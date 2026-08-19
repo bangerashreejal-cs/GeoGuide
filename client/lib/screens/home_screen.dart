@@ -7,61 +7,65 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
     final isPhone = AppSpacing.isPhone(context);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundColor,
       body: Stack(
         children: [
-          // Decorative background icons
+          // Background Watermark Icons
           IgnorePointer(
             child: Stack(
               children: [
                 Positioned(
-                  top: 80,
-                  right: 40,
+                  top: screenSize.height * 0.08,
+                  right: 30,
                   child: Icon(
                     Icons.explore_outlined,
-                    size: isPhone ? 100 : 160,
-                    color: AppColors.primaryTeal.withOpacity(0.04),
+                    size: isPhone ? 100 : 150,
+                    color: AppColors.primaryTeal.withOpacity(0.06),
                   ),
                 ),
                 Positioned(
-                  bottom: 120,
-                  left: 30,
+                  top: screenSize.height * 0.32,
+                  left: 350,
                   child: Icon(
-                    Icons.travel_explore,
-                    size: isPhone ? 90 : 140,
-                    color: AppColors.primaryTeal.withOpacity(0.04),
+                    Icons.near_me_outlined,
+                    size: isPhone ? 80 : 120,
+                    color: AppColors.primaryTeal.withOpacity(0.06),
                   ),
                 ),
                 Positioned(
-                  bottom: MediaQuery.of(context).size.height * 0.2,
-                  right: 250,
+                  bottom: screenSize.height * 0.18,
+                  left: 35,
                   child: Icon(
-                    Icons.local_see,
-                    size: isPhone ? 70 : 110,
-                    color: AppColors.primaryTeal.withOpacity(0.03),
+                    Icons.pedal_bike_outlined,
+                    size: isPhone ? 85 : 130,
+                    color: AppColors.primaryTeal.withOpacity(0.06),
                   ),
                 ),
                 Positioned(
-                  bottom: MediaQuery.of(context).size.height * 0.56,
-                  left: 450,
+                  bottom: screenSize.height * 0.27,
+                  right: 150,
                   child: Icon(
-                    Icons.hiking,
-                    size: isPhone ? 70 : 110,
-                    color: AppColors.primaryTeal.withOpacity(0.03),
+                    Icons.travel_explore_outlined,
+                    size: isPhone ? 75 : 110,
+                    color: AppColors.primaryTeal.withOpacity(0.06),
                   ),
                 ),
               ],
             ),
           ),
 
-          // Main content
+          // Main Screen Content
           SafeArea(
             child: Padding(
               padding: EdgeInsets.symmetric(
-                horizontal: AppSpacing.horizontal(context, isHome: true),
+                horizontal: AppSpacing.horizontal(
+                  context,
+                  isHome: true,
+                ),
                 vertical: AppSpacing.vertical(context),
               ),
               child: Column(
@@ -81,55 +85,36 @@ class HomeScreen extends StatelessWidget {
                   // Welcome section
                   Center(
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: isPhone ? 500 : 700,
+                      constraints: const BoxConstraints(
+                        maxWidth: 700,
                       ),
                       child: Column(
                         children: [
                           Text(
-                            'Ready to Wander?\nWelcome to GeoGuide.',
+                            'Ready to Wander?\nWelcome to GeoGuide',
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: AppSizes.headingSize(context),
-                              fontWeight: FontWeight.bold,
-                              height: 1.2,
-                              color: AppColors.darkText,
-                            ),
+                            style: AppTextStyles.heading(context),
                           ),
 
-                          SizedBox(
-                            height: isPhone ? 18 : 24,
-                          ),
+                          const SizedBox(height: 24),
 
                           Text(
                             'Tired of endless scrolling and choice paralysis? '
                             'GeoGuide helps you discover food, cultural heritage, '
                             'parks, and hidden gems around you — without the hassle.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: AppSizes.bodySize(context),
-                              height: 1.6,
-                              color: AppColors.secondaryText,
-                            ),
+                            style: AppTextStyles.body(context),
                           ),
 
-                          SizedBox(
-                            height: isPhone ? 16 : 20,
-                          ),
+                          const SizedBox(height: 20),
 
                           Text(
                             'Your next favorite spot is just a tap away.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: AppSizes.taglineSize(context),
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.darkText,
-                            ),
+                            style: AppTextStyles.tagline(context),
                           ),
 
-                          SizedBox(
-                            height: isPhone ? 28 : 35,
-                          ),
+                          const SizedBox(height: 35),
 
                           // Explore button
                           ElevatedButton(
@@ -145,9 +130,9 @@ class HomeScreen extends StatelessWidget {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primaryTeal,
                               foregroundColor: Colors.white,
-                              padding: EdgeInsets.symmetric(
-                                horizontal: isPhone ? 30 : 36,
-                                vertical: isPhone ? 16 : 18,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 36,
+                                vertical: 18,
                               ),
                               elevation: 2,
                               shape: RoundedRectangleBorder(
@@ -156,10 +141,7 @@ class HomeScreen extends StatelessWidget {
                             ),
                             child: Text(
                               "Let's Dive In",
-                              style: TextStyle(
-                                fontSize: isPhone ? 15 : 16,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: AppTextStyles.button(context),
                             ),
                           ),
                         ],
@@ -171,11 +153,8 @@ class HomeScreen extends StatelessWidget {
 
                   // Footer
                   Text(
-                    'Explore the city around you.',
-                    style: TextStyle(
-                      fontSize: isPhone ? 12 : 14,
-                      color: AppColors.secondaryText,
-                    ),
+                    'Explore nearby. Discover differently.',
+                    style: AppTextStyles.bottomTagline(context),
                   ),
 
                   const SizedBox(height: 10),

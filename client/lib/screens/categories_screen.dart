@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'theme.dart'; // Adjust path if app_theme.dart is in the same folder
+import 'theme.dart';
 
 class CategoriesScreen extends StatelessWidget {
   const CategoriesScreen({super.key});
@@ -8,7 +8,6 @@ class CategoriesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPhone = AppSpacing.isPhone(context);
 
-    // Categories list with icons and descriptions
     final categories = [
       {
         'title': 'Street Food & Cafes',
@@ -45,121 +44,332 @@ class CategoriesScreen extends StatelessWidget {
             children: [
               // Header
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                    ),
                     color: AppColors.darkText,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
-                  Text(
-                    'Explore Categories',
-                    style: TextStyle(
-                      fontSize: isPhone ? 20.0 : 24.0,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.darkText,
+
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'Explore Categories',
+                        style: AppTextStyles.pageTitle(context),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 48), // Spacer to balance back button
+
+                  // Keeps title centered
+                  SizedBox(
+                    width: isPhone ? 24 : 40,
+                  ),
                 ],
               ),
 
-              const SizedBox(height: 24),
+              SizedBox(
+                height: isPhone ? 20 : 24,
+              ),
 
-              Text(
-                'What are you in the mood for today?',
-                style: TextStyle(
-                  fontSize: isPhone ? 15.0 : 17.0,
-                  color: AppColors.secondaryText,
+              // Subtitle
+              Center(
+                child: Text(
+                  'What are you in the mood for today?',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.categorySubtitle(context).copyWith(
+                    fontSize: isPhone ? 15 : 17,
+                  ),
                 ),
               ),
 
-              const SizedBox(height: 20),
+              SizedBox(
+                height: isPhone ? 16 : 20,
+              ),
 
-              // Categories Grid
+              // Category grid + workflow
               Expanded(
-                child: GridView.builder(
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: isPhone ? 1 : 2,
-                    childAspectRatio: isPhone ? 2.8 : 2.2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                  ),
-                  itemCount: categories.length,
-                  itemBuilder: (context, index) {
-                    final cat = categories[index];
-                    return InkWell(
-                      onTap: () {
-                        // TODO: Navigate to specific category listing page
-                      },
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: AppColors.cardBgColor,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
+                child: Column(
+                  children: [
+                    // ============================
+                    // CATEGORY GRID
+                    // ============================
+                    Expanded(
+                      child: GridView.builder(
+                        physics: const BouncingScrollPhysics(),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: isPhone ? 1 : 2,
+                          mainAxisExtent: isPhone ? 105 : 135,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
                         ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryTeal.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                cat['icon'] as IconData,
-                                color: AppColors.primaryTeal,
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    cat['title'] as String,
-                                    style: TextStyle(
-                                      fontSize: isPhone ? 16.0 : 18.0,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.darkText,
+                        itemCount: categories.length,
+                        itemBuilder: (context, index) {
+                          final category = categories[index];
+
+                          return Material(
+                            color: AppColors.cardBgColor,
+                            borderRadius: BorderRadius.circular(16),
+                            elevation: 1,
+                            child: InkWell(
+                              onTap: () {
+                                // Category screen will be connected here later.
+                              },
+                              borderRadius: BorderRadius.circular(16),
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isPhone ? 16 : 20,
+                                  vertical: isPhone ? 14 : 16,
+                                ),
+                                child: Row(
+                                  children: [
+                                    // Category icon
+                                    Container(
+                                      width: isPhone ? 48 : 52,
+                                      height: isPhone ? 48 : 52,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primaryTeal
+                                            .withOpacity(0.10),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Icon(
+                                        category['icon'] as IconData,
+                                        color: AppColors.primaryTeal,
+                                        size: isPhone ? 24 : 26,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    cat['subtitle'] as String,
-                                    style: TextStyle(
-                                      fontSize: isPhone ? 13.0 : 14.0,
+
+                                    SizedBox(
+                                      width: isPhone ? 14 : 16,
+                                    ),
+
+                                    // Category text
+                                    Expanded(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            category['title'] as String,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: AppTextStyles.categoryTitle(
+                                              context,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            category['subtitle'] as String,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style:
+                                                AppTextStyles.categorySubtitle(
+                                              context,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+
+                                    const SizedBox(width: 8),
+
+                                    // Arrow
+                                    Icon(
+                                      Icons.arrow_forward_ios_rounded,
+                                      size: isPhone ? 14 : 16,
                                       color: AppColors.secondaryText,
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                            const Icon(
-                              Icons.arrow_forward_ios_rounded,
-                              size: 16,
-                              color: AppColors.secondaryText,
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
-                    );
-                  },
+                    ),
+
+                    // ============================
+                    // HOW GEOGUIDE WORKS
+                    // ============================
+                    Padding(
+                      padding: EdgeInsets.only(
+                        top: isPhone ? 12 : 18,
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'How GeoGuide works',
+                            style: AppTextStyles.workflowHeading(context),
+                          ),
+
+                          SizedBox(
+                            height: isPhone ? 10 : 12,
+                          ),
+
+                          // MOBILE WORKFLOW
+                          if (isPhone)
+                            Column(
+                              children: [
+                                _buildWorkflowStep(
+                                  context,
+                                  number: '1',
+                                  text: 'Choose a category',
+                                  isPhone: true,
+                                ),
+                                _buildWorkflowArrow(),
+                                _buildWorkflowStep(
+                                  context,
+                                  number: '2',
+                                  text: 'Set your distance',
+                                  isPhone: true,
+                                ),
+                                _buildWorkflowArrow(),
+                                _buildWorkflowStep(
+                                  context,
+                                  number: '3',
+                                  text: 'Discover nearby',
+                                  isPhone: true,
+                                ),
+                              ],
+                            )
+
+                          // DESKTOP / TABLET WORKFLOW
+                          else
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _buildWorkflowStep(
+                                  context,
+                                  number: '1',
+                                  text: 'Choose a category',
+                                  isPhone: false,
+                                ),
+                                _buildHorizontalArrow(),
+                                _buildWorkflowStep(
+                                  context,
+                                  number: '2',
+                                  text: 'Set your distance',
+                                  isPhone: false,
+                                ),
+                                _buildHorizontalArrow(),
+                                _buildWorkflowStep(
+                                  context,
+                                  number: '3',
+                                  text: 'Discover nearby',
+                                  isPhone: false,
+                                ),
+                              ],
+                            ),
+
+                          SizedBox(
+                            height: isPhone ? 12 : 16,
+                          ),
+                          SizedBox(
+                            height: isPhone ? 4 : 8,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // WORKFLOW STEP
+  // ==========================================
+
+  static Widget _buildWorkflowStep(
+    BuildContext context, {
+    required String number,
+    required String text,
+    required bool isPhone,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Number circle
+        Container(
+          width: isPhone ? 40 : 46,
+          height: isPhone ? 40 : 46,
+          decoration: BoxDecoration(
+            color: AppColors.primaryTeal,
+            shape: BoxShape.circle,
+
+            // Subtle cream border
+            border: Border.all(
+              color: AppColors.backgroundColor,
+              width: 3,
+            ),
+
+            // Soft teal shadow
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primaryTeal.withOpacity(0.15),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            number,
+            style: AppTextStyles.workflowStep(context).copyWith(
+              color: Colors.white,
+              fontSize: isPhone ? 14 : 15,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 7),
+
+        // Step description
+        Text(
+          text,
+          textAlign: TextAlign.center,
+          style: AppTextStyles.workflowStep(context),
+        ),
+      ],
+    );
+  }
+
+  // ==========================================
+  // MOBILE ARROW
+  // ==========================================
+
+  static Widget _buildWorkflowArrow() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 3),
+      child: Icon(
+        Icons.keyboard_arrow_down_rounded,
+        size: 18,
+        color: AppColors.secondaryText,
+      ),
+    );
+  }
+
+  // ==========================================
+  // DESKTOP ARROW
+  // ==========================================
+
+  static Widget _buildHorizontalArrow() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 18),
+      child: Icon(
+        Icons.arrow_forward_rounded,
+        size: 18,
+        color: AppColors.secondaryText,
       ),
     );
   }
