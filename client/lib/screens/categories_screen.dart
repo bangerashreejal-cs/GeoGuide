@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
+import 'result_screen.dart';
 
 class CategoriesScreen extends StatelessWidget {
   const CategoriesScreen({super.key});
@@ -13,21 +14,25 @@ class CategoriesScreen extends StatelessWidget {
         'title': 'Street Food & Cafes',
         'subtitle': 'Bestsellers & quick bites',
         'icon': Icons.local_cafe_rounded,
+        'apiCategory': 'Food',
       },
       {
         'title': 'Cultural Heritage',
         'subtitle': 'Historical walks & landmarks',
         'icon': Icons.account_balance_rounded,
+        'apiCategory': 'Cultural Heritage',
       },
       {
         'title': 'Parks & Trails',
         'subtitle': 'Green spaces & nature walks',
         'icon': Icons.park_rounded,
+        'apiCategory': 'Park/Recreation',
       },
       {
         'title': 'Hidden Gems',
         'subtitle': 'Offbeat local secrets',
         'icon': Icons.explore_rounded,
+        'apiCategory': 'Hidden Gem',
       },
     ];
 
@@ -116,7 +121,20 @@ class CategoriesScreen extends StatelessWidget {
                             elevation: 1,
                             child: InkWell(
                               onTap: () {
-                                // Category screen will be connected here later.
+                                final String selectedApiCategory =
+                                    category['apiCategory'] as String;
+                                final String displayTitle =
+                                    category['title'] as String;
+
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ResultScreen(
+                                      category: displayTitle,
+                                      apiCategory: selectedApiCategory,
+                                    ),
+                                  ),
+                                );
                               },
                               borderRadius: BorderRadius.circular(16),
                               child: Padding(
