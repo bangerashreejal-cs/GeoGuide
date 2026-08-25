@@ -25,8 +25,8 @@ class ApiService {
   static Future<List<dynamic>> getNearbyPlaces({
     required double lat,
     required double lng,
-    int maxDistance = 20000,
-    int limit = 10,
+    int maxDistance = 1000,
+    int limit = 1,
     String? category,
   }) async {
     String urlString =
