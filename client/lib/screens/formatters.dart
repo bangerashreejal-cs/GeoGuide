@@ -1,6 +1,7 @@
 String formatDisplayText(String value) {
   return value
-      .split('_')
+      .replaceAll('_', ' ')
+      .split(' ')
       .map(
         (word) => word.isEmpty
             ? word

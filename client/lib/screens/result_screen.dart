@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'theme.dart';
 import '../api_services.dart';
 import 'place_details.dart';
+import 'formatters.dart';
 
 class ResultScreen extends StatefulWidget {
   final String category;
@@ -279,7 +280,8 @@ class _ResultScreenState extends State<ResultScreen> {
                                         children: [
                                           Expanded(
                                             child: Text(
-                                              place['name'] ?? 'Unnamed place',
+                                              formatDisplayText(
+                                                  place['name'].toString()),
                                               style:
                                                   AppTextStyles.categoryTitle(
                                                 context,

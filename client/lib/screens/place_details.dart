@@ -69,7 +69,7 @@ class PlaceDetails extends StatelessWidget {
               // ============================
               if (_hasValue('name'))
                 Text(
-                  place['name'].toString(),
+                  formatDisplayText(place['name'].toString()),
                   style: AppTextStyles.pageTitle(context),
                 ),
 
