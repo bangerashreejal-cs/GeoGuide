@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'theme.dart';
 import 'formatters.dart';
 
@@ -13,7 +14,6 @@ class PlaceDetails extends StatelessWidget {
   // Returns true only when the field actually contains useful information.
   bool _hasValue(String key) {
     final value = place[key];
-
     return value != null && value.toString().trim().isNotEmpty;
   }
 
@@ -136,13 +136,22 @@ class PlaceDetails extends StatelessWidget {
                         value: place['opening_hours'].toString(),
                       ),
 
-                    // Website
+                    // Website (Clickable)
                     if (_hasValue('website'))
                       _buildInfoSection(
                         context,
                         icon: Icons.language_rounded,
                         title: 'Website',
                         value: place['website'].toString(),
+                        isLink: true,
+                        onTap: () async {
+                          final Uri url =
+                              Uri.parse(place['website'].toString());
+                          if (await canLaunchUrl(url)) {
+                            await launchUrl(url,
+                                mode: LaunchMode.externalApplication);
+                          }
+                        },
                       ),
 
                     const SizedBox(height: 16),
@@ -227,6 +236,8 @@ class PlaceDetails extends StatelessWidget {
     required IconData icon,
     required String title,
     required String value,
+    bool isLink = false,
+    VoidCallback? onTap,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -235,32 +246,39 @@ class PlaceDetails extends StatelessWidget {
         color: AppColors.cardBgColor,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            icon,
-            color: AppColors.primaryTeal,
-            size: 22,
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: AppTextStyles.categoryTitle(context),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: AppTextStyles.categorySubtitle(context),
-                ),
-              ],
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              icon,
+              color: AppColors.primaryTeal,
+              size: 22,
             ),
-          ),
-        ],
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTextStyles.categoryTitle(context),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    style: AppTextStyles.categorySubtitle(context).copyWith(
+                      color: isLink ? Colors.blue : null,
+                      decoration: isLink ? TextDecoration.underline : null,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

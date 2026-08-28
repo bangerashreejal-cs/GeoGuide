@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'theme.dart';
 import '../api_services.dart';
 import 'place_details.dart';
@@ -32,13 +33,47 @@ class _ResultScreenState extends State<ResultScreen> {
     _fetchNearbyPlaces();
   }
 
+  // Helper method to fetch the current device position safely
+  Future<Position?> _determinePosition() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return null; // Location services disabled
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return null; // Permissions denied
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return null; // Permissions permanently denied
+    }
+
+    return await Geolocator.getCurrentPosition();
+  }
+
   Future<void> _fetchNearbyPlaces() async {
     setState(() => isLoading = true);
 
     try {
+      // 1. Get live GPS position
+      Position? position = await _determinePosition();
+
+      // 2. Fallback coordinates if location fails or is denied
+      double lat = position?.latitude ?? 19.0416956;
+      double lng = position?.longitude ?? 73.0362166;
+
+      print("Fetching places for Lat: $lat, Lng: $lng");
+
       final data = await ApiService.getNearbyPlaces(
-        lat: 19.0416956,
-        lng: 73.0362166,
+        lat: lat,
+        lng: lng,
         maxDistance: selectedDistance,
         limit: selectedLimit,
         category: widget.apiCategory,

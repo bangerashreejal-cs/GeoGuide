@@ -231,29 +231,33 @@ class CategoriesScreen extends StatelessWidget {
 
                           // MOBILE WORKFLOW
                           if (isPhone)
-                            Column(
-                              children: [
-                                _buildWorkflowStep(
-                                  context,
-                                  number: '1',
-                                  text: 'Choose a category',
-                                  isPhone: true,
-                                ),
-                                _buildWorkflowArrow(),
-                                _buildWorkflowStep(
-                                  context,
-                                  number: '2',
-                                  text: 'Set your distance',
-                                  isPhone: true,
-                                ),
-                                _buildWorkflowArrow(),
-                                _buildWorkflowStep(
-                                  context,
-                                  number: '3',
-                                  text: 'Discover nearby',
-                                  isPhone: true,
-                                ),
-                              ],
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _buildWorkflowStep(
+                                    context,
+                                    number: '1',
+                                    text: 'Choose a category',
+                                    isPhone: true,
+                                  ),
+                                  _buildHorizontalArrow(),
+                                  _buildWorkflowStep(
+                                    context,
+                                    number: '2',
+                                    text: 'Set your distance',
+                                    isPhone: true,
+                                  ),
+                                  _buildHorizontalArrow(),
+                                  _buildWorkflowStep(
+                                    context,
+                                    number: '3',
+                                    text: 'Discover nearby',
+                                    isPhone: true,
+                                  ),
+                                ],
+                              ),
                             )
 
                           // DESKTOP / TABLET WORKFLOW
@@ -318,8 +322,8 @@ class CategoriesScreen extends StatelessWidget {
       children: [
         // Number circle
         Container(
-          width: isPhone ? 40 : 46,
-          height: isPhone ? 40 : 46,
+          width: isPhone ? 32 : 38,
+          height: isPhone ? 32 : 38,
           decoration: BoxDecoration(
             color: AppColors.primaryTeal,
             shape: BoxShape.circle,
@@ -344,7 +348,7 @@ class CategoriesScreen extends StatelessWidget {
             number,
             style: AppTextStyles.workflowStep(context).copyWith(
               color: Colors.white,
-              fontSize: isPhone ? 14 : 15,
+              fontSize: isPhone ? 10 : 15,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -356,7 +360,10 @@ class CategoriesScreen extends StatelessWidget {
         Text(
           text,
           textAlign: TextAlign.center,
-          style: AppTextStyles.workflowStep(context),
+          style: AppTextStyles.workflowStep(context).copyWith(
+            fontSize:
+                isPhone ? 10 : 13, // Adjust 10 to a lower number if needed
+          ),
         ),
       ],
     );
@@ -383,7 +390,7 @@ class CategoriesScreen extends StatelessWidget {
 
   static Widget _buildHorizontalArrow() {
     return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 18),
+      padding: EdgeInsets.symmetric(horizontal: 2),
       child: Icon(
         Icons.arrow_forward_rounded,
         size: 18,

@@ -1,9 +1,66 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'theme.dart';
 import 'categories_screen.dart';
+import 'formatters.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
+
+  Future<Position?> _determinePosition(BuildContext context) async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      // Show dialog prompting user to turn on location services
+      bool? turnOn = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Location Services Disabled'),
+            content: const Text(
+              'Location services are turned off. Please enable them to use GeoGuide.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Open Settings'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (turnOn == true) {
+        await Geolocator.openLocationSettings();
+      }
+      return null;
+    }
+
+    permission = await Geolocator.requestPermission();
+    if (permission == LocationPermission.denied) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location permissions are denied')),
+      );
+      return null;
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Location permissions are permanently denied, we cannot request permissions.')),
+      );
+      return null;
+    }
+
+    return await Geolocator.getCurrentPosition();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,51 +71,57 @@ class HomeScreen extends StatelessWidget {
       backgroundColor: AppColors.backgroundColor,
       body: Stack(
         children: [
-          // Background Watermark Icons
           IgnorePointer(
             child: Stack(
               children: [
                 Positioned(
-                  top: screenSize.height * 0.08,
-                  right: 30,
+                  top: context.screenHeight * 0.08,
+                  right: context.screenWidth * 0.08,
                   child: Icon(
                     Icons.explore_outlined,
-                    size: isPhone ? 100 : 150,
+                    size: context.isPhone ? 90 : 150,
                     color: AppColors.primaryTeal.withOpacity(0.06),
                   ),
                 ),
                 Positioned(
-                  top: screenSize.height * 0.32,
-                  left: 350,
+                  top: context.screenHeight * 0.32,
+                  right: context.screenWidth * 0.75,
                   child: Icon(
                     Icons.near_me_outlined,
-                    size: isPhone ? 80 : 120,
+                    size: context.isPhone ? 75 : 120,
                     color: AppColors.primaryTeal.withOpacity(0.06),
                   ),
                 ),
                 Positioned(
-                  bottom: screenSize.height * 0.18,
-                  left: 35,
+                  top: context.screenHeight * 0.4,
+                  right: context.screenWidth * 0.01,
+                  child: Icon(
+                    Icons.attractions,
+                    size: context.isPhone ? 75 : 120,
+                    color: AppColors.primaryTeal.withOpacity(0.06),
+                  ),
+                ),
+                Positioned(
+                  bottom: context.screenHeight * 0.18,
+                  left: context.screenWidth * 0.08,
                   child: Icon(
                     Icons.pedal_bike_outlined,
-                    size: isPhone ? 85 : 130,
+                    size: context.isPhone ? 80 : 130,
                     color: AppColors.primaryTeal.withOpacity(0.06),
                   ),
                 ),
                 Positioned(
-                  bottom: screenSize.height * 0.27,
-                  right: 150,
+                  bottom: context.screenHeight * 0.10,
+                  right: context.screenWidth * 0.10,
                   child: Icon(
                     Icons.travel_explore_outlined,
-                    size: isPhone ? 75 : 110,
+                    size: context.isPhone ? 70 : 110,
                     color: AppColors.primaryTeal.withOpacity(0.06),
                   ),
                 ),
               ],
             ),
           ),
-
-          // Main Screen Content
           SafeArea(
             child: Padding(
               padding: EdgeInsets.symmetric(
@@ -70,7 +133,6 @@ class HomeScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  // GeoGuide logo
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Image.asset(
@@ -79,10 +141,7 @@ class HomeScreen extends StatelessWidget {
                       filterQuality: FilterQuality.high,
                     ),
                   ),
-
                   const Spacer(),
-
-                  // Welcome section
                   Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(
@@ -95,9 +154,7 @@ class HomeScreen extends StatelessWidget {
                             textAlign: TextAlign.center,
                             style: AppTextStyles.heading(context),
                           ),
-
                           const SizedBox(height: 24),
-
                           Text(
                             'Tired of endless scrolling and choice paralysis? '
                             'GeoGuide helps you discover food, cultural heritage, '
@@ -105,27 +162,31 @@ class HomeScreen extends StatelessWidget {
                             textAlign: TextAlign.center,
                             style: AppTextStyles.body(context),
                           ),
-
                           const SizedBox(height: 20),
-
                           Text(
                             'Your next favorite spot is just a tap away.',
                             textAlign: TextAlign.center,
                             style: AppTextStyles.tagline(context),
                           ),
-
                           const SizedBox(height: 35),
-
-                          // Explore button
                           ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const CategoriesScreen(),
-                                ),
-                              );
+                            onPressed: () async {
+                              // 1. Get position and capture result
+                              Position? position =
+                                  await _determinePosition(context);
+
+                              // 2. Gate navigation: stop if location check failed or was denied
+                              if (position == null) return;
+
+                              if (context.mounted) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const CategoriesScreen(),
+                                  ),
+                                );
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primaryTeal,
@@ -148,15 +209,11 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-
                   const Spacer(),
-
-                  // Footer
                   Text(
                     'Explore nearby. Discover differently.',
                     style: AppTextStyles.bottomTagline(context),
                   ),
-
                   const SizedBox(height: 10),
                 ],
               ),
