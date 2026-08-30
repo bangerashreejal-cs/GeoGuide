@@ -22,6 +22,7 @@ class ResultScreen extends StatefulWidget {
 class _ResultScreenState extends State<ResultScreen> {
   List<dynamic> places = [];
   bool isLoading = true;
+  bool isRefreshing = false;
 
   // Filter state variables
   int selectedDistance = 1000; // in meters
@@ -89,6 +90,25 @@ class _ResultScreenState extends State<ResultScreen> {
       setState(() {
         isLoading = false;
       });
+    }
+  }
+
+  // Refreshes the phone's current location and nearby places
+  Future<void> _refreshLocation() async {
+    if (isRefreshing) return;
+
+    setState(() {
+      isRefreshing = true;
+    });
+
+    try {
+      await _fetchNearbyPlaces();
+    } finally {
+      if (mounted) {
+        setState(() {
+          isRefreshing = false;
+        });
+      }
     }
   }
 
@@ -237,14 +257,34 @@ class _ResultScreenState extends State<ResultScreen> {
               const SizedBox(height: 16),
 
               // ============================
-              // RESULTS COUNT
+              // RESULTS COUNT + REFRESH
               // ============================
-              isLoading
-                  ? const SizedBox.shrink()
-                  : Text(
+              if (!isLoading)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
                       '${places.length} places found nearby',
                       style: AppTextStyles.categorySubtitle(context),
                     ),
+                    IconButton(
+                      onPressed: isRefreshing ? null : _refreshLocation,
+                      icon: isRefreshing
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.refresh_rounded,
+                            ),
+                      color: AppColors.primaryTeal,
+                      tooltip: 'Refresh location',
+                    ),
+                  ],
+                ),
 
               const SizedBox(height: 16),
 
@@ -306,9 +346,7 @@ class _ResultScreenState extends State<ResultScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      // ============================
                                       // NAME + DISTANCE
-                                      // ============================
                                       Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.spaceBetween,
@@ -316,7 +354,8 @@ class _ResultScreenState extends State<ResultScreen> {
                                           Expanded(
                                             child: Text(
                                               formatDisplayText(
-                                                  place['name'].toString()),
+                                                place['name'].toString(),
+                                              ),
                                               style:
                                                   AppTextStyles.categoryTitle(
                                                 context,
@@ -331,13 +370,10 @@ class _ResultScreenState extends State<ResultScreen> {
                                                 vertical: 4,
                                               ),
                                               decoration: BoxDecoration(
-                                                color: Colors.green.withOpacity(
-                                                  0.1,
-                                                ),
+                                                color: Colors.green
+                                                    .withOpacity(0.1),
                                                 borderRadius:
-                                                    BorderRadius.circular(
-                                                  8,
-                                                ),
+                                                    BorderRadius.circular(8),
                                               ),
                                               child: Text(
                                                 distanceKm < 1.0
@@ -355,9 +391,7 @@ class _ResultScreenState extends State<ResultScreen> {
 
                                       const SizedBox(height: 6),
 
-                                      // ============================
                                       // DESCRIPTION
-                                      // ============================
                                       if (place['description'] != null)
                                         Text(
                                           place['description'].toString(),

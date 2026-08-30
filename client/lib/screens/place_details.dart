@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'theme.dart';
 import 'formatters.dart';
+import 'map_screen.dart';
 
 class PlaceDetails extends StatelessWidget {
   final Map<String, dynamic> place;
@@ -15,6 +16,31 @@ class PlaceDetails extends StatelessWidget {
   bool _hasValue(String key) {
     final value = place[key];
     return value != null && value.toString().trim().isNotEmpty;
+  }
+
+  // Helper to extract coordinates safely from MongoDB GeoJSON or flat fields
+  (double, double) _getCoordinates() {
+    double lat = 0.0;
+    double lng = 0.0;
+
+    if (place['location'] != null && place['location']['coordinates'] != null) {
+      final coords = place['location']['coordinates'] as List;
+      if (coords.length >= 2) {
+        lng = double.tryParse(coords[0].toString()) ?? 0.0;
+        lat = double.tryParse(coords[1].toString()) ?? 0.0;
+      }
+    } else {
+      lat = double.tryParse(place['lat']?.toString() ??
+              place['latitude']?.toString() ??
+              '') ??
+          0.0;
+      lng = double.tryParse(place['lng']?.toString() ??
+              place['longitude']?.toString() ??
+              '') ??
+          0.0;
+    }
+
+    return (lat, lng);
   }
 
   @override
@@ -163,7 +189,20 @@ class PlaceDetails extends StatelessWidget {
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          // Map functionality will be added later.
+                          final (lat, lng) = _getCoordinates();
+                          final name =
+                              place['name']?.toString() ?? 'Selected Place';
+
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => MapScreen(
+                                latitude: lat,
+                                longitude: lng,
+                                placeName: name,
+                              ),
+                            ),
+                          );
                         },
                         icon: const Icon(
                           Icons.map_outlined,
@@ -192,8 +231,15 @@ class PlaceDetails extends StatelessWidget {
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
-                        onPressed: () {
-                          // Navigation functionality will be added later.
+                        onPressed: () async {
+                          final (lat, lng) = _getCoordinates();
+                          final Uri mapUrl = Uri.parse(
+                              'https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+
+                          if (await canLaunchUrl(mapUrl)) {
+                            await launchUrl(mapUrl,
+                                mode: LaunchMode.externalApplication);
+                          }
                         },
                         icon: const Icon(
                           Icons.navigation_outlined,

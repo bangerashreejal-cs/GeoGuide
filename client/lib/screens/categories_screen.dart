@@ -59,7 +59,6 @@ class CategoriesScreen extends StatelessWidget {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
-
                   Expanded(
                     child: Center(
                       child: Text(
@@ -68,8 +67,6 @@ class CategoriesScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-
-                  // Keeps title centered
                   SizedBox(
                     width: isPhone ? 24 : 40,
                   ),
@@ -99,9 +96,7 @@ class CategoriesScreen extends StatelessWidget {
               Expanded(
                 child: Column(
                   children: [
-                    // ============================
                     // CATEGORY GRID
-                    // ============================
                     Expanded(
                       child: GridView.builder(
                         physics: const BouncingScrollPhysics(),
@@ -144,7 +139,6 @@ class CategoriesScreen extends StatelessWidget {
                                 ),
                                 child: Row(
                                   children: [
-                                    // Category icon
                                     Container(
                                       width: isPhone ? 48 : 52,
                                       height: isPhone ? 48 : 52,
@@ -159,12 +153,9 @@ class CategoriesScreen extends StatelessWidget {
                                         size: isPhone ? 24 : 26,
                                       ),
                                     ),
-
                                     SizedBox(
                                       width: isPhone ? 14 : 16,
                                     ),
-
-                                    // Category text
                                     Expanded(
                                       child: Column(
                                         mainAxisAlignment:
@@ -193,10 +184,7 @@ class CategoriesScreen extends StatelessWidget {
                                         ],
                                       ),
                                     ),
-
                                     const SizedBox(width: 8),
-
-                                    // Arrow
                                     Icon(
                                       Icons.arrow_forward_ios_rounded,
                                       size: isPhone ? 14 : 16,
@@ -211,9 +199,7 @@ class CategoriesScreen extends StatelessWidget {
                       ),
                     ),
 
-                    // ============================
                     // HOW GEOGUIDE WORKS
-                    // ============================
                     Padding(
                       padding: EdgeInsets.only(
                         top: isPhone ? 12 : 18,
@@ -224,7 +210,6 @@ class CategoriesScreen extends StatelessWidget {
                             'How GeoGuide works',
                             style: AppTextStyles.workflowHeading(context),
                           ),
-
                           SizedBox(
                             height: isPhone ? 10 : 12,
                           ),
@@ -320,21 +305,16 @@ class CategoriesScreen extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Number circle
         Container(
           width: isPhone ? 32 : 38,
           height: isPhone ? 32 : 38,
           decoration: BoxDecoration(
             color: AppColors.primaryTeal,
             shape: BoxShape.circle,
-
-            // Subtle cream border
             border: Border.all(
               color: AppColors.backgroundColor,
               width: 3,
             ),
-
-            // Soft teal shadow
             boxShadow: [
               BoxShadow(
                 color: AppColors.primaryTeal.withOpacity(0.15),
@@ -353,16 +333,12 @@ class CategoriesScreen extends StatelessWidget {
             ),
           ),
         ),
-
         const SizedBox(height: 7),
-
-        // Step description
         Text(
           text,
           textAlign: TextAlign.center,
           style: AppTextStyles.workflowStep(context).copyWith(
-            fontSize:
-                isPhone ? 10 : 13, // Adjust 10 to a lower number if needed
+            fontSize: isPhone ? 10 : 13,
           ),
         ),
       ],
@@ -370,30 +346,15 @@ class CategoriesScreen extends StatelessWidget {
   }
 
   // ==========================================
-  // MOBILE ARROW
-  // ==========================================
-
-  static Widget _buildWorkflowArrow() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 3),
-      child: Icon(
-        Icons.keyboard_arrow_down_rounded,
-        size: 18,
-        color: AppColors.secondaryText,
-      ),
-    );
-  }
-
-  // ==========================================
-  // DESKTOP ARROW
+  // HORIZONTAL ARROW
   // ==========================================
 
   static Widget _buildHorizontalArrow() {
     return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 2),
+      padding: EdgeInsets.symmetric(horizontal: 6),
       child: Icon(
         Icons.arrow_forward_rounded,
-        size: 18,
+        size: 16,
         color: AppColors.secondaryText,
       ),
     );

@@ -12,8 +12,9 @@ class HomeScreen extends StatelessWidget {
     LocationPermission permission;
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!context.mounted) return null;
+
     if (!serviceEnabled) {
-      // Show dialog prompting user to turn on location services
       bool? turnOn = await showDialog<bool>(
         context: context,
         builder: (BuildContext context) {
@@ -36,6 +37,8 @@ class HomeScreen extends StatelessWidget {
         },
       );
 
+      if (!context.mounted) return null;
+
       if (turnOn == true) {
         await Geolocator.openLocationSettings();
       }
@@ -43,6 +46,8 @@ class HomeScreen extends StatelessWidget {
     }
 
     permission = await Geolocator.requestPermission();
+    if (!context.mounted) return null;
+
     if (permission == LocationPermission.denied) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Location permissions are denied')),
@@ -64,9 +69,6 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final isPhone = AppSpacing.isPhone(context);
-
     return Scaffold(
       backgroundColor: AppColors.backgroundColor,
       body: Stack(
@@ -171,11 +173,9 @@ class HomeScreen extends StatelessWidget {
                           const SizedBox(height: 35),
                           ElevatedButton(
                             onPressed: () async {
-                              // 1. Get position and capture result
                               Position? position =
                                   await _determinePosition(context);
 
-                              // 2. Gate navigation: stop if location check failed or was denied
                               if (position == null) return;
 
                               if (context.mounted) {
