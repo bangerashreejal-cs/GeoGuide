@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
 import 'theme.dart';
 import 'formatters.dart';
 import 'map_screen.dart';
@@ -173,9 +174,11 @@ class PlaceDetails extends StatelessWidget {
                         onTap: () async {
                           final Uri url =
                               Uri.parse(place['website'].toString());
-                          if (await canLaunchUrl(url)) {
+                          try {
                             await launchUrl(url,
                                 mode: LaunchMode.externalApplication);
+                          } catch (e) {
+                            debugPrint('Could not launch $url: $e');
                           }
                         },
                       ),
@@ -188,21 +191,39 @@ class PlaceDetails extends StatelessWidget {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: () {
+                        onPressed: () async {
                           final (lat, lng) = _getCoordinates();
                           final name =
                               place['name']?.toString() ?? 'Selected Place';
 
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => MapScreen(
-                                latitude: lat,
-                                longitude: lng,
-                                placeName: name,
+                          double? currentLat;
+                          double? currentLng;
+
+                          try {
+                            Position position =
+                                await Geolocator.getCurrentPosition(
+                              desiredAccuracy: LocationAccuracy.high,
+                            );
+                            currentLat = position.latitude;
+                            currentLng = position.longitude;
+                          } catch (e) {
+                            debugPrint('Could not fetch current location: $e');
+                          }
+
+                          if (context.mounted) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => MapScreen(
+                                  latitude: lat,
+                                  longitude: lng,
+                                  placeName: name,
+                                  currentLatitude: currentLat,
+                                  currentLongitude: currentLng,
+                                ),
                               ),
-                            ),
-                          );
+                            );
+                          }
                         },
                         icon: const Icon(
                           Icons.map_outlined,
@@ -233,9 +254,10 @@ class PlaceDetails extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: () async {
                           final (lat, lng) = _getCoordinates();
+                          final destinationName = Uri.encodeComponent(
+                              place['name'] ?? 'Destination');
                           final Uri mapUrl = Uri.parse(
-                              'https://www.google.com/maps/search/?api=1&query=$lat,$lng');
-
+                              'geo:0,0?q=$lat,$lng($destinationName)');
                           if (await canLaunchUrl(mapUrl)) {
                             await launchUrl(mapUrl,
                                 mode: LaunchMode.externalApplication);
@@ -287,43 +309,50 @@ class PlaceDetails extends StatelessWidget {
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.cardBgColor,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              icon,
-              color: AppColors.primaryTeal,
-              size: 22,
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: AppTextStyles.categoryTitle(context),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  icon,
+                  color: AppColors.primaryTeal,
+                  size: 22,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: AppTextStyles.categoryTitle(context),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        value,
+                        style: TextStyle(
+                          color: Colors.grey[800],
+                          fontWeight: FontWeight.normal,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    value,
-                    style: AppTextStyles.categorySubtitle(context).copyWith(
-                      color: isLink ? Colors.blue : null,
-                      decoration: isLink ? TextDecoration.underline : null,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
