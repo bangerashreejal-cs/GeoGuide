@@ -23,6 +23,7 @@ class _ResultScreenState extends State<ResultScreen> {
   List<dynamic> places = [];
   bool isLoading = true;
   bool isRefreshing = false;
+  bool isOffline = false; // Tracks if we are showing cached data
 
   // Filter state variables
   int selectedDistance = 1000; // in meters
@@ -60,6 +61,7 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 
   Future<void> _fetchNearbyPlaces() async {
+    if (!mounted) return;
     setState(() => isLoading = true);
 
     try {
@@ -80,16 +82,31 @@ class _ResultScreenState extends State<ResultScreen> {
         category: widget.apiCategory,
       );
 
+      if (!mounted) return;
       setState(() {
-        places = data;
+        // Enforces the limit client-side as a safety net for cached/fetched items
+        places = data.take(selectedLimit).toList();
         isLoading = false;
+        isOffline = false; // Successfully hit the server
       });
     } catch (e) {
-      print('Error loading nearby places: $e');
+      print('Error loading nearby places, trying fallback: $e');
 
+      if (!mounted) return;
       setState(() {
         isLoading = false;
+        isOffline = true; // Triggered cache fallback
       });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No internet connection. Showing cached places.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
@@ -156,6 +173,35 @@ class _ResultScreenState extends State<ResultScreen> {
               ),
 
               const SizedBox(height: 16),
+
+              // ============================
+              // OFFLINE BANNER (Conditional)
+              // ============================
+              if (isOffline)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.withOpacity(0.4)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.offline_bolt, color: Colors.orange, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Offline Mode: Showing cached results',
+                        style: TextStyle(
+                          color: Colors.orange,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
               // ============================
               // FILTER DROPDOWNS

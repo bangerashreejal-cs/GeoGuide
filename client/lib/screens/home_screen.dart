@@ -135,14 +135,6 @@ class HomeScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Image.asset(
-                      'assets/images/geoguide.png',
-                      width: AppSizes.logoWidth(context),
-                      filterQuality: FilterQuality.high,
-                    ),
-                  ),
                   const Spacer(),
                   Center(
                     child: ConstrainedBox(

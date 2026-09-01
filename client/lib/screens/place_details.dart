@@ -339,14 +339,16 @@ class PlaceDetails extends StatelessWidget {
                         style: AppTextStyles.categoryTitle(context),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        value,
-                        style: TextStyle(
-                          color: Colors.grey[800],
-                          fontWeight: FontWeight.normal,
-                          decoration: TextDecoration.none,
+                      if (!isLink) ...[
+                        Text(
+                          value,
+                          style: TextStyle(
+                            color: Colors.grey[800],
+                            fontWeight: FontWeight.normal,
+                            decoration: TextDecoration.none,
+                          ),
                         ),
-                      ),
+                      ]
                     ],
                   ),
                 ),
