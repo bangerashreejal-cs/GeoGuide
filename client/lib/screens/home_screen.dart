@@ -86,10 +86,19 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 Positioned(
-                  top: context.screenHeight * 0.32,
+                  top: context.screenHeight * 0.4,
                   right: context.screenWidth * 0.75,
                   child: Icon(
                     Icons.near_me_outlined,
+                    size: context.isPhone ? 75 : 120,
+                    color: AppColors.primaryTeal.withOpacity(0.06),
+                  ),
+                ),
+                Positioned(
+                  top: context.screenHeight * 0.25,
+                  right: context.screenWidth * 0.41,
+                  child: Icon(
+                    Icons.bolt,
                     size: context.isPhone ? 75 : 120,
                     color: AppColors.primaryTeal.withOpacity(0.06),
                   ),
@@ -135,6 +144,19 @@ class HomeScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
+                  Text(
+                    'Welcome To',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.heading(context),
+                  ),
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: Image.asset(
+                      'assets/images/geoguide.png',
+                      width: AppSizes.logoWidth(context),
+                      filterQuality: FilterQuality.high,
+                    ),
+                  ),
                   const Spacer(),
                   Center(
                     child: ConstrainedBox(
@@ -144,7 +166,7 @@ class HomeScreen extends StatelessWidget {
                       child: Column(
                         children: [
                           Text(
-                            'Ready to Wander?\nWelcome to GeoGuide',
+                            'Ready to Wander?',
                             textAlign: TextAlign.center,
                             style: AppTextStyles.heading(context),
                           ),
