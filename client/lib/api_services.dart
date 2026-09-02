@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'cached_places.dart'; // Import your cache service
 
 class ApiService {
-  static const String baseUrl = 'http://127.0.0.1:8000';
+  static const String baseUrl = 'https://geoguide-bmgl.onrender.com';
 
   static Future<List<dynamic>> getPlacesByCategory(
     String category,
