@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'theme.dart';
 import '../api_services.dart';
+import '../cached_places.dart';
 import 'place_details.dart';
 import 'formatters.dart';
 
@@ -82,6 +83,12 @@ class _ResultScreenState extends State<ResultScreen> {
         category: widget.apiCategory,
       );
 
+      // Save successfully fetched data to local cache
+      await PlaceCacheService.saveNearbyPlaces(
+        List<Map<String, dynamic>>.from(data),
+        category: widget.apiCategory,
+      );
+
       if (!mounted) return;
       setState(() {
         // Enforces the limit client-side as a safety net for cached/fetched items
@@ -92,8 +99,19 @@ class _ResultScreenState extends State<ResultScreen> {
     } catch (e) {
       print('Error loading nearby places, trying fallback: $e');
 
+      // Attempt to load from PlaceCacheService
+      List<Map<String, dynamic>> cachedData = [];
+      try {
+        cachedData = await PlaceCacheService.getCachedNearbyPlaces(
+          category: widget.apiCategory,
+        );
+      } catch (cacheError) {
+        print('Cache read error: $cacheError');
+      }
+
       if (!mounted) return;
       setState(() {
+        places = cachedData.take(selectedLimit).toList();
         isLoading = false;
         isOffline = true; // Triggered cache fallback
       });

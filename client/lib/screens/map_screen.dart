@@ -63,7 +63,16 @@ class MapScreen extends StatelessWidget {
         children: [
           TileLayer(
             urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.example.geoguide',
+            userAgentPackageName:
+                'com.example.client', // Match your app's bundle/package name
+          ),
+          RichAttributionWidget(
+            attributions: [
+              TextSourceAttribution(
+                'OpenStreetMap contributors',
+                onTap: () => debugPrint('Clicked OSM copyright'),
+              ),
+            ],
           ),
           MarkerLayer(markers: markers),
         ],
