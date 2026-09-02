@@ -1,6 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'cached_places.dart'; // Import your cache service
+import 'cached_places.dart';
 
 class ApiService {
   static const String baseUrl = 'https://geoguide-bmgl.onrender.com';
@@ -12,14 +13,18 @@ class ApiService {
       '$baseUrl/places?category=${Uri.encodeComponent(category)}',
     );
 
-    final response = await http.get(url);
+    try {
+      final response = await http.get(url).timeout(const Duration(seconds: 45));
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception(
-        'Failed to load places: ${response.statusCode}',
-      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Server error: ${response.statusCode}');
+      }
+    } on TimeoutException {
+      throw Exception('Server is waking up from sleep. Please try again.');
+    } catch (e) {
+      throw Exception('No internet connection or network failure.');
     }
   }
 
@@ -38,8 +43,10 @@ class ApiService {
     }
 
     try {
-      // 1. Attempt live network fetch
-      final response = await http.get(Uri.parse(urlString));
+      // 1. Attempt live network fetch with a 45s timeout for Render cold starts
+      final response = await http.get(Uri.parse(urlString)).timeout(
+            const Duration(seconds: 45),
+          );
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
@@ -54,21 +61,24 @@ class ApiService {
       } else {
         throw Exception('Failed to load nearby places');
       }
-    } catch (e) {
-      // 3. Fallback: Return category-specific cached data if offline and not expired
+    } on TimeoutException {
+      // 3. Fallback to cache on timeout (Render cold start)
       if (category != null && category.isNotEmpty) {
-        final bool expired =
-            await PlaceCacheService.isCacheExpired(category: category);
-
-        if (!expired) {
-          final cachedData =
-              await PlaceCacheService.getCachedNearbyPlaces(category: category);
-          if (cachedData.isNotEmpty) {
-            return cachedData;
-          }
+        final cachedData =
+            await PlaceCacheService.getCachedNearbyPlaces(category: category);
+        if (cachedData.isNotEmpty) return cachedData;
+      }
+      throw Exception('Server is waking up. Please try again in a moment.');
+    } catch (e) {
+      // 4. Fallback to cache if network fails entirely
+      if (category != null && category.isNotEmpty) {
+        final cachedData =
+            await PlaceCacheService.getCachedNearbyPlaces(category: category);
+        if (cachedData.isNotEmpty) {
+          return cachedData;
         }
       }
-      throw Exception('Network error and local cache expired or not found: $e');
+      throw Exception('No internet connection and no cached data available.');
     }
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'theme.dart';
@@ -5,6 +6,8 @@ import '../api_services.dart';
 import '../cached_places.dart';
 import 'place_details.dart';
 import 'formatters.dart';
+import 'loading_screen.dart';
+import 'dart:io';
 
 class ResultScreen extends StatefulWidget {
   final String category;
@@ -24,16 +27,34 @@ class _ResultScreenState extends State<ResultScreen> {
   List<dynamic> places = [];
   bool isLoading = true;
   bool isRefreshing = false;
-  bool isOffline = false; // Tracks if we are showing cached data
+  bool isOffline = false;
+  bool hasInternet = false; // Tracks if we are showing cached data
 
   // Filter state variables
   int selectedDistance = 1000; // in meters
   int selectedLimit = 1; // Show places
 
+  StreamSubscription<ServiceStatus>? _serviceStatusStreamSubscription;
+
   @override
   void initState() {
     super.initState();
     _fetchNearbyPlaces();
+
+    // Real-time listener for location services toggle
+    _serviceStatusStreamSubscription =
+        Geolocator.getServiceStatusStream().listen((ServiceStatus status) {
+      if (status == ServiceStatus.disabled) {
+        _showBottomWarning('Location services were turned off.');
+        _loadFromCacheOrEmpty();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _serviceStatusStreamSubscription?.cancel();
+    super.dispose();
   }
 
   // Helper method to fetch the current device position safely
@@ -43,22 +64,29 @@ class _ResultScreenState extends State<ResultScreen> {
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      return null; // Location services disabled
+      if (mounted) {
+        _showBottomWarning('Please turn on location.');
+      }
+      return null;
     }
 
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        return null; // Permissions denied
+        return null;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      return null; // Permissions permanently denied
+      return null;
     }
 
-    return await Geolocator.getCurrentPosition();
+    return await Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+      ),
+    );
   }
 
   Future<void> _fetchNearbyPlaces() async {
@@ -66,14 +94,43 @@ class _ResultScreenState extends State<ResultScreen> {
     setState(() => isLoading = true);
 
     try {
-      // 1. Get live GPS position
+      // Quick internet check to bypass long buffering when offline
+      hasInternet = true;
+      try {
+        final result = await InternetAddress.lookup('google.com')
+            .timeout(const Duration(seconds: 3));
+        if (result.isEmpty || result[0].rawAddress.isEmpty) {
+          hasInternet = false;
+        }
+      } catch (_) {
+        hasInternet = false;
+      }
+
+      if (!hasInternet) {
+        if (mounted) {
+          _showBottomWarning('No internet connection.');
+        }
+        await _loadFromCacheOrEmpty();
+        return;
+      }
+
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          _showBottomWarning('Please turn on location.');
+        }
+        await _loadFromCacheOrEmpty();
+        return;
+      }
+
       Position? position = await _determinePosition();
+      if (position == null) {
+        await _loadFromCacheOrEmpty();
+        return;
+      }
 
-      // 2. Fallback coordinates if location fails or is denied
-      double lat = position?.latitude ?? 19.0416956;
-      double lng = position?.longitude ?? 73.0362166;
-
-      print("Fetching places for Lat: $lat, Lng: $lng");
+      double lat = position.latitude;
+      double lng = position.longitude;
 
       final data = await ApiService.getNearbyPlaces(
         lat: lat,
@@ -81,9 +138,8 @@ class _ResultScreenState extends State<ResultScreen> {
         maxDistance: selectedDistance,
         limit: selectedLimit,
         category: widget.apiCategory,
-      );
+      ).timeout(const Duration(seconds: 10));
 
-      // Save successfully fetched data to local cache
       await PlaceCacheService.saveNearbyPlaces(
         List<Map<String, dynamic>>.from(data),
         category: widget.apiCategory,
@@ -91,59 +147,97 @@ class _ResultScreenState extends State<ResultScreen> {
 
       if (!mounted) return;
       setState(() {
-        // Enforces the limit client-side as a safety net for cached/fetched items
         places = data.take(selectedLimit).toList();
         isLoading = false;
-        isOffline = false; // Successfully hit the server
+        isOffline = false;
       });
     } catch (e) {
-      print('Error loading nearby places, trying fallback: $e');
+      print('Error loading nearby places: $e');
 
-      // Attempt to load from PlaceCacheService
-      List<Map<String, dynamic>> cachedData = [];
-      try {
-        cachedData = await PlaceCacheService.getCachedNearbyPlaces(
-          category: widget.apiCategory,
-        );
-      } catch (cacheError) {
-        print('Cache read error: $cacheError');
+      final errorStr = e.toString().toLowerCase();
+      bool isNetworkError = errorStr.contains('socket') ||
+          errorStr.contains('timeout') ||
+          errorStr.contains('failed host') ||
+          errorStr.contains('network') ||
+          errorStr.contains('connection');
+
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+      if (isNetworkError) {
+        if (mounted) {
+          _showBottomWarning('No internet connection.');
+        }
+      } else if (!serviceEnabled) {
+        if (mounted) {
+          _showBottomWarning('Please turn on location.');
+        }
       }
 
-      if (!mounted) return;
-      setState(() {
-        places = cachedData.take(selectedLimit).toList();
-        isLoading = false;
-        isOffline = true; // Triggered cache fallback
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No internet connection. Showing cached places.'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
-          ),
-        );
+      if (isNetworkError || !serviceEnabled) {
+        await _loadFromCacheOrEmpty();
+      } else {
+        if (!mounted) return;
+        setState(() {
+          places = [];
+          isLoading = false;
+          isOffline = false;
+        });
       }
     }
   }
 
-  // Refreshes the phone's current location and nearby places
-  Future<void> _refreshLocation() async {
-    if (isRefreshing) return;
+  // Helper to handle cache fallback cleanly
+  Future<void> _loadFromCacheOrEmpty() async {
+    List<Map<String, dynamic>> cachedData = [];
+    try {
+      cachedData = await PlaceCacheService.getCachedNearbyPlaces(
+        category: widget.apiCategory,
+      );
+
+      // Filter by your distance slider limit safely supporting alternate keys
+      cachedData = cachedData.where((place) {
+        final double distance =
+            ((place['distance'] ?? place['dist']) as num?)?.toDouble() ?? 0.0;
+        return distance <= selectedDistance;
+      }).toList();
+    } catch (cacheError) {
+      print('Cache read error: $cacheError');
+    }
+
+    if (!mounted) return;
 
     setState(() {
-      isRefreshing = true;
+      places = cachedData.take(selectedLimit).toList();
+      isLoading = false;
+      isOffline =
+          places.isNotEmpty; // Ensures banner activates when cache exists
     });
+  }
 
+  void _showBottomWarning(String message) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.primaryTeal,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  Future<void> _refreshLocation() async {
+    if (isRefreshing) return;
+    setState(() => isRefreshing = true);
     try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          _showBottomWarning('Please turn on location.');
+        }
+      }
       await _fetchNearbyPlaces();
     } finally {
-      if (mounted) {
-        setState(() {
-          isRefreshing = false;
-        });
-      }
+      if (mounted) setState(() => isRefreshing = false);
     }
   }
 
@@ -162,16 +256,12 @@ class _ResultScreenState extends State<ResultScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ============================
               // HEADER
-              // ============================
               Row(
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                    ),
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded),
                     color: AppColors.darkText,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -181,38 +271,37 @@ class _ResultScreenState extends State<ResultScreen> {
                       child: Text(
                         widget.category,
                         style: AppTextStyles.pageTitle(context),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
-                  SizedBox(
-                    width: isPhone ? 24 : 40,
-                  ),
+                  SizedBox(width: isPhone ? 24 : 40),
                 ],
               ),
 
               const SizedBox(height: 16),
 
-              // ============================
-              // OFFLINE BANNER (Conditional)
-              // ============================
-              if (isOffline)
+              // OFFLINE BANNER (Only shows when displaying cached data)
+              if (isOffline && places.isNotEmpty)
                 Container(
                   margin: const EdgeInsets.only(bottom: 16),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.15),
+                    color: AppColors.primaryTeal.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.withOpacity(0.4)),
+                    border: Border.all(
+                        color: AppColors.primaryTeal.withOpacity(0.4)),
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.offline_bolt, color: Colors.orange, size: 20),
+                      Icon(Icons.bookmark,
+                          color: AppColors.primaryTeal, size: 20),
                       SizedBox(width: 8),
                       Text(
-                        'Offline Mode: Showing cached results',
+                        'Saved from your recent visits',
                         style: TextStyle(
-                          color: Colors.orange,
+                          color: AppColors.primaryTeal,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
@@ -221,18 +310,13 @@ class _ResultScreenState extends State<ResultScreen> {
                   ),
                 ),
 
-              // ============================
               // FILTER DROPDOWNS
-              // ============================
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Distance Dropdown
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
                         color: AppColors.cardBgColor,
                         borderRadius: BorderRadius.circular(12),
@@ -244,24 +328,15 @@ class _ResultScreenState extends State<ResultScreen> {
                           style: AppTextStyles.categorySubtitle(context),
                           items: const [
                             DropdownMenuItem(
-                              value: 1000,
-                              child: Text('Within 1 km'),
-                            ),
+                                value: 1000, child: Text('Within 1 km')),
                             DropdownMenuItem(
-                              value: 5000,
-                              child: Text('Within 5 km'),
-                            ),
+                                value: 5000, child: Text('Within 5 km')),
                             DropdownMenuItem(
-                              value: 10000,
-                              child: Text('Within 10 km'),
-                            ),
+                                value: 10000, child: Text('Within 10 km')),
                           ],
                           onChanged: (val) {
                             if (val != null) {
-                              setState(() {
-                                selectedDistance = val;
-                              });
-
+                              setState(() => selectedDistance = val);
                               _fetchNearbyPlaces();
                             }
                           },
@@ -269,49 +344,32 @@ class _ResultScreenState extends State<ResultScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(width: 12),
-
-                  // Limit Dropdown
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.cardBgColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<int>(
-                        value: selectedLimit,
-                        style: AppTextStyles.categorySubtitle(context),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 1,
-                            child: Text('Show 1'),
-                          ),
-                          DropdownMenuItem(
-                            value: 3,
-                            child: Text('Show 3'),
-                          ),
-                          DropdownMenuItem(
-                            value: 5,
-                            child: Text('Show 5'),
-                          ),
-                          DropdownMenuItem(
-                            value: 10,
-                            child: Text('Show 10'),
-                          ),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              selectedLimit = val;
-                            });
-
-                            _fetchNearbyPlaces();
-                          }
-                        },
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardBgColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int>(
+                          value: selectedLimit,
+                          isExpanded: true,
+                          style: AppTextStyles.categorySubtitle(context),
+                          items: const [
+                            DropdownMenuItem(value: 1, child: Text('Show 1')),
+                            DropdownMenuItem(value: 3, child: Text('Show 3')),
+                            DropdownMenuItem(value: 5, child: Text('Show 5')),
+                            DropdownMenuItem(value: 10, child: Text('Show 10')),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() => selectedLimit = val);
+                              _fetchNearbyPlaces();
+                            }
+                          },
+                        ),
                       ),
                     ),
                   ),
@@ -320,9 +378,7 @@ class _ResultScreenState extends State<ResultScreen> {
 
               const SizedBox(height: 16),
 
-              // ============================
               // RESULTS COUNT + REFRESH
-              // ============================
               if (!isLoading)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -337,13 +393,9 @@ class _ResultScreenState extends State<ResultScreen> {
                           ? const SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                              ),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(
-                              Icons.refresh_rounded,
-                            ),
+                          : const Icon(Icons.refresh_rounded),
                       color: AppColors.primaryTeal,
                       tooltip: 'Refresh location',
                     ),
@@ -352,21 +404,19 @@ class _ResultScreenState extends State<ResultScreen> {
 
               const SizedBox(height: 16),
 
-              // ============================
               // PLACES LIST
-              // ============================
               Expanded(
                 child: isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(),
-                      )
+                    ? const Center(child: CustomLoadingPin())
                     : places.isEmpty
                         ? Center(
                             child: Text(
-                              'No places found nearby for this category.',
-                              style: AppTextStyles.categorySubtitle(
-                                context,
-                              ),
+                              // If online, show the friendly suggestion. If offline, keep the offline message.
+                              hasInternet
+                                  ? 'No places found nearby. Try expanding your distance or limit dropdowns above! '
+                                  : 'No offline places saved for this category.',
+                              textAlign: TextAlign.center,
+                              style: AppTextStyles.categorySubtitle(context),
                             ),
                           )
                         : ListView.separated(
@@ -376,25 +426,18 @@ class _ResultScreenState extends State<ResultScreen> {
                                 const SizedBox(height: 12),
                             itemBuilder: (context, index) {
                               final place = places[index];
-
-                              // Safely parse distance_km
                               final double? distanceKm =
                                   place['distance_km'] != null
                                       ? (place['distance_km'] as num).toDouble()
                                       : null;
 
-                              // ============================
-                              // CLICKABLE PLACE CARD
-                              // ============================
                               return InkWell(
                                 onTap: () {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) => PlaceDetails(
-                                        place: Map<String, dynamic>.from(
-                                          place,
-                                        ),
+                                        place: Map<String, dynamic>.from(place),
                                       ),
                                     ),
                                   );
@@ -410,7 +453,6 @@ class _ResultScreenState extends State<ResultScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      // NAME + DISTANCE
                                       Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.spaceBetween,
@@ -418,23 +460,20 @@ class _ResultScreenState extends State<ResultScreen> {
                                           Expanded(
                                             child: Text(
                                               formatDisplayText(
-                                                place['name'].toString(),
-                                              ),
+                                                  place['name'].toString()),
                                               style:
                                                   AppTextStyles.categoryTitle(
-                                                context,
-                                              ),
+                                                      context),
                                             ),
                                           ),
                                           if (distanceKm != null)
                                             Container(
                                               padding:
                                                   const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 4,
-                                              ),
+                                                      horizontal: 8,
+                                                      vertical: 4),
                                               decoration: BoxDecoration(
-                                                color: Colors.green
+                                                color: AppColors.primaryTeal
                                                     .withOpacity(0.1),
                                                 borderRadius:
                                                     BorderRadius.circular(8),
@@ -446,24 +485,20 @@ class _ResultScreenState extends State<ResultScreen> {
                                                 style: const TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.bold,
-                                                  color: Colors.green,
+                                                  color: AppColors.primaryTeal,
                                                 ),
                                               ),
                                             ),
                                         ],
                                       ),
-
                                       const SizedBox(height: 6),
-
-                                      // DESCRIPTION
                                       if (place['description'] != null)
                                         Text(
                                           place['description'].toString(),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                           style: AppTextStyles.categorySubtitle(
-                                            context,
-                                          ),
+                                              context),
                                         ),
                                     ],
                                   ),

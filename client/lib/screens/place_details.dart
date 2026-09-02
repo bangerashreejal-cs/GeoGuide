@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
@@ -256,11 +257,20 @@ class PlaceDetails extends StatelessWidget {
                           final (lat, lng) = _getCoordinates();
                           final destinationName = Uri.encodeComponent(
                               place['name'] ?? 'Destination');
-                          final Uri mapUrl = Uri.parse(
-                              'geo:0,0?q=$lat,$lng($destinationName)');
+
+                          final Uri mapUrl = kIsWeb
+                              ? Uri.parse(
+                                  'https://www.google.com/maps/search/?api=1&query=$lat,$lng')
+                              : Uri.parse(
+                                  'geo:0,0?q=$lat,$lng($destinationName)');
+
                           if (await canLaunchUrl(mapUrl)) {
-                            await launchUrl(mapUrl,
-                                mode: LaunchMode.externalApplication);
+                            await launchUrl(
+                              mapUrl,
+                              mode: kIsWeb
+                                  ? LaunchMode.platformDefault
+                                  : LaunchMode.externalApplication,
+                            );
                           }
                         },
                         icon: const Icon(

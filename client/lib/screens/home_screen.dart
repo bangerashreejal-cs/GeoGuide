@@ -7,64 +7,48 @@ import 'formatters.dart';
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
-  Future<Position?> _determinePosition(BuildContext context) async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!context.mounted) return null;
+  Future<void> _handleDiveIn(BuildContext context) async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!context.mounted) return;
 
     if (!serviceEnabled) {
-      bool? turnOn = await showDialog<bool>(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Location Services Disabled'),
-            content: const Text(
-              'Location services are turned off. Please enable them to use GeoGuide.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Open Settings'),
-              ),
-            ],
-          );
-        },
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please turn on location services.')),
       );
-
-      if (!context.mounted) return null;
-
-      if (turnOn == true) {
-        await Geolocator.openLocationSettings();
-      }
-      return null;
+      await Geolocator.openLocationSettings();
+      return;
     }
 
-    permission = await Geolocator.requestPermission();
-    if (!context.mounted) return null;
-
+    LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location permissions are denied')),
-      );
-      return null;
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location permissions are denied')),
+        );
+        return;
+      }
     }
 
     if (permission == LocationPermission.deniedForever) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text(
-                'Location permissions are permanently denied, we cannot request permissions.')),
+          content: Text('Location permissions are permanently denied.'),
+        ),
       );
-      return null;
+      return;
     }
 
-    return await Geolocator.getCurrentPosition();
+    if (context.mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const CategoriesScreen(),
+        ),
+      );
+    }
   }
 
   @override
@@ -186,22 +170,7 @@ class HomeScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 35),
                           ElevatedButton(
-                            onPressed: () async {
-                              Position? position =
-                                  await _determinePosition(context);
-
-                              if (position == null) return;
-
-                              if (context.mounted) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const CategoriesScreen(),
-                                  ),
-                                );
-                              }
-                            },
+                            onPressed: () => _handleDiveIn(context),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primaryTeal,
                               foregroundColor: Colors.white,

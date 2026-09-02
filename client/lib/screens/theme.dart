@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AppColors {
   static const primaryTeal = Color(0xFF176B68);
@@ -53,7 +52,8 @@ class AppSizes {
 class AppTextStyles {
   // Main page headings
   static TextStyle heading(BuildContext context) {
-    return GoogleFonts.poppins(
+    return TextStyle(
+      fontFamily: 'Poppins',
       fontSize: AppSizes.headingSize(context),
       fontWeight: FontWeight.bold,
       color: AppColors.darkText,
@@ -63,7 +63,8 @@ class AppTextStyles {
 
   // Regular body text
   static TextStyle body(BuildContext context) {
-    return GoogleFonts.poppins(
+    return TextStyle(
+      fontFamily: 'Poppins',
       fontSize: AppSizes.bodySize(context),
       color: AppColors.secondaryText,
       height: 1.6,
@@ -72,7 +73,8 @@ class AppTextStyles {
 
   // Smaller supporting text
   static TextStyle tagline(BuildContext context) {
-    return GoogleFonts.poppins(
+    return TextStyle(
+      fontFamily: 'Poppins',
       fontSize: AppSizes.taglineSize(context),
       fontWeight: FontWeight.w500,
       color: AppColors.darkText,
@@ -81,7 +83,8 @@ class AppTextStyles {
 
   // Category page heading
   static TextStyle pageTitle(BuildContext context) {
-    return GoogleFonts.poppins(
+    return TextStyle(
+      fontFamily: 'Poppins',
       fontSize: AppSpacing.isPhone(context) ? 20 : 24,
       fontWeight: FontWeight.bold,
       color: AppColors.darkText,
@@ -90,7 +93,8 @@ class AppTextStyles {
 
   // Category card title
   static TextStyle categoryTitle(BuildContext context) {
-    return GoogleFonts.poppins(
+    return TextStyle(
+      fontFamily: 'Poppins',
       fontSize: AppSpacing.isPhone(context) ? 16 : 18,
       fontWeight: FontWeight.bold,
       color: AppColors.darkText,
@@ -99,7 +103,8 @@ class AppTextStyles {
 
   // Category card subtitle
   static TextStyle categorySubtitle(BuildContext context) {
-    return GoogleFonts.poppins(
+    return TextStyle(
+      fontFamily: 'Poppins',
       fontSize: AppSpacing.isPhone(context) ? 13 : 14,
       color: AppColors.secondaryText,
     );
@@ -107,7 +112,8 @@ class AppTextStyles {
 
   // Button text
   static TextStyle button(BuildContext context) {
-    return GoogleFonts.poppins(
+    return TextStyle(
+      fontFamily: 'Poppins',
       fontSize: AppSpacing.isPhone(context) ? 15 : 16,
       fontWeight: FontWeight.w600,
       color: Colors.white,
@@ -116,7 +122,8 @@ class AppTextStyles {
 
   // Workflow heading
   static TextStyle workflowHeading(BuildContext context) {
-    return GoogleFonts.poppins(
+    return TextStyle(
+      fontFamily: 'Poppins',
       fontSize: AppSpacing.isPhone(context) ? 14 : 16,
       fontWeight: FontWeight.w600,
       color: AppColors.darkText,
@@ -125,7 +132,8 @@ class AppTextStyles {
 
   // Workflow step text
   static TextStyle workflowStep(BuildContext context) {
-    return GoogleFonts.poppins(
+    return TextStyle(
+      fontFamily: 'Poppins',
       fontSize: AppSpacing.isPhone(context) ? 13 : 14,
       fontWeight: FontWeight.w500,
       color: AppColors.darkText,
@@ -134,7 +142,8 @@ class AppTextStyles {
 
   // Bottom GeoGuide tagline
   static TextStyle bottomTagline(BuildContext context) {
-    return GoogleFonts.poppins(
+    return TextStyle(
+      fontFamily: 'Poppins',
       fontSize: AppSpacing.isPhone(context) ? 13 : 15,
       fontWeight: FontWeight.w500,
       color: AppColors.secondaryText,
