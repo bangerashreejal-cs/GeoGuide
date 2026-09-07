@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -7,7 +8,6 @@ import '../cached_places.dart';
 import 'place_details.dart';
 import 'formatters.dart';
 import 'loading_screen.dart';
-import 'dart:io';
 
 class ResultScreen extends StatefulWidget {
   final String category;
@@ -27,12 +27,16 @@ class _ResultScreenState extends State<ResultScreen> {
   List<dynamic> places = [];
   bool isLoading = true;
   bool isRefreshing = false;
+
+  // TRUE = saved/cache data is being displayed.
+  // FALSE = fresh API data is being displayed.
   bool isOffline = false;
-  bool hasInternet = false; // Tracks if we are showing cached data
+
+  bool hasInternet = false;
 
   // Filter state variables
-  int selectedDistance = 1000; // in meters
-  int selectedLimit = 1; // Show places
+  int selectedDistance = 1000;
+  int selectedLimit = 1;
 
   StreamSubscription<ServiceStatus>? _serviceStatusStreamSubscription;
 
@@ -41,11 +45,15 @@ class _ResultScreenState extends State<ResultScreen> {
     super.initState();
     _fetchNearbyPlaces();
 
-    // Real-time listener for location services toggle
+    // Listen for location services being turned off while
+    // the user is already on this screen.
     _serviceStatusStreamSubscription =
         Geolocator.getServiceStatusStream().listen((ServiceStatus status) {
       if (status == ServiceStatus.disabled) {
         _showBottomWarning('Location services were turned off.');
+
+        // Location is no longer available, so switch to
+        // saved mode instead of clearing the screen.
         _loadFromCacheOrEmpty();
       }
     });
@@ -57,12 +65,15 @@ class _ResultScreenState extends State<ResultScreen> {
     super.dispose();
   }
 
-  // Helper method to fetch the current device position safely
+  // ------------------------------------------------------------
+  // GET CURRENT DEVICE LOCATION
+  // ------------------------------------------------------------
   Future<Position?> _determinePosition() async {
     bool serviceEnabled;
     LocationPermission permission;
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
     if (!serviceEnabled) {
       if (mounted) {
         _showBottomWarning('Please turn on location.');
@@ -71,8 +82,10 @@ class _ResultScreenState extends State<ResultScreen> {
     }
 
     permission = await Geolocator.checkPermission();
+
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
+
       if (permission == LocationPermission.denied) {
         return null;
       }
@@ -89,117 +102,156 @@ class _ResultScreenState extends State<ResultScreen> {
     );
   }
 
+  // ------------------------------------------------------------
+  // CHECK INTERNET CONNECTION
+  // ------------------------------------------------------------
+  Future<bool> _checkInternetConnection() async {
+    try {
+      final result = await InternetAddress.lookup('example.com')
+          .timeout(const Duration(seconds: 5));
+
+      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ------------------------------------------------------------
+  // FETCH NEARBY PLACES
+  //
+  // Fresh mode:
+  // Internet ON + Location ON + Backend works
+  //
+  // Saved mode:
+  // Any condition prevents fresh data
+  // ------------------------------------------------------------
   Future<void> _fetchNearbyPlaces() async {
     if (!mounted) return;
-    setState(() => isLoading = true);
+
+    setState(() {
+      isLoading = true;
+    });
 
     try {
-      // Quick internet check to bypass long buffering when offline
-      hasInternet = true;
-      try {
-        final result = await InternetAddress.lookup('google.com')
-            .timeout(const Duration(seconds: 3));
-        if (result.isEmpty || result[0].rawAddress.isEmpty) {
-          hasInternet = false;
-        }
-      } catch (_) {
-        hasInternet = false;
-      }
+      // ----------------------------------------------------------
+      // 1. CHECK INTERNET
+      // ----------------------------------------------------------
+      final internetAvailable = await _checkInternetConnection();
 
-      if (!hasInternet) {
+      if (!internetAvailable) {
+        hasInternet = false;
+
         if (mounted) {
           _showBottomWarning('No internet connection.');
         }
+
+        // No internet → use saved places.
         await _loadFromCacheOrEmpty();
         return;
       }
 
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      // Internet is available.
+      hasInternet = true;
+
+      // ----------------------------------------------------------
+      // 2. CHECK LOCATION SERVICES
+      // ----------------------------------------------------------
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
       if (!serviceEnabled) {
         if (mounted) {
           _showBottomWarning('Please turn on location.');
         }
+
+        // Internet exists, but location does not.
+        // We cannot determine "nearby", so use saved places.
         await _loadFromCacheOrEmpty();
         return;
       }
 
-      Position? position = await _determinePosition();
+      // ----------------------------------------------------------
+      // 3. GET CURRENT LOCATION
+      // ----------------------------------------------------------
+      final Position? position = await _determinePosition();
+
       if (position == null) {
+        // Location permission unavailable/denied.
+        // Use saved places instead.
         await _loadFromCacheOrEmpty();
         return;
       }
 
-      double lat = position.latitude;
-      double lng = position.longitude;
+      final double lat = position.latitude;
+      final double lng = position.longitude;
 
+      // ----------------------------------------------------------
+      // 4. TRY TO GET FRESH DATA FROM RENDER
+      // ----------------------------------------------------------
       final data = await ApiService.getNearbyPlaces(
         lat: lat,
         lng: lng,
         maxDistance: selectedDistance,
         limit: selectedLimit,
         category: widget.apiCategory,
-      ).timeout(const Duration(seconds: 10));
-
-      await PlaceCacheService.saveNearbyPlaces(
-        List<Map<String, dynamic>>.from(data),
-        category: widget.apiCategory,
       );
 
+      // ----------------------------------------------------------
+      // 5. FRESH DATA SUCCESSFULLY RECEIVED
+      // ----------------------------------------------------------
       if (!mounted) return;
+
       setState(() {
         places = data.take(selectedLimit).toList();
-        isLoading = false;
+
+        // FALSE = fresh API results.
+        // Distance can safely be displayed.
         isOffline = false;
+
+        isLoading = false;
+        hasInternet = true;
       });
     } catch (e) {
       print('Error loading nearby places: $e');
 
-      final errorStr = e.toString().toLowerCase();
-      bool isNetworkError = errorStr.contains('socket') ||
-          errorStr.contains('timeout') ||
-          errorStr.contains('failed host') ||
-          errorStr.contains('network') ||
-          errorStr.contains('connection');
+      // ----------------------------------------------------------
+      // BACKEND / NETWORK FAILURE
+      //
+      // Internet may technically exist, but Render may be:
+      // - sleeping
+      // - unavailable
+      // - returning an error
+      // - taking too long
+      //
+      // In all cases → saved mode.
+      // ----------------------------------------------------------
 
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-
-      if (isNetworkError) {
-        if (mounted) {
-          _showBottomWarning('No internet connection.');
-        }
-      } else if (!serviceEnabled) {
-        if (mounted) {
-          _showBottomWarning('Please turn on location.');
-        }
+      if (mounted) {
+        _showBottomWarning(
+          'Unable to reach the server. Showing saved places.',
+        );
       }
 
-      if (isNetworkError || !serviceEnabled) {
-        await _loadFromCacheOrEmpty();
-      } else {
-        if (!mounted) return;
-        setState(() {
-          places = [];
-          isLoading = false;
-          isOffline = false;
-        });
-      }
+      await _loadFromCacheOrEmpty();
     }
   }
 
-  // Helper to handle cache fallback cleanly
+  // ------------------------------------------------------------
+  // LOAD SAVED / CACHED PLACES
+  //
+  // IMPORTANT:
+  // We do NOT filter using the cached distance.
+  //
+  // Cached distance may have been calculated from an older
+  // location, so it cannot be treated as the user's current
+  // distance.
+  // ------------------------------------------------------------
   Future<void> _loadFromCacheOrEmpty() async {
     List<Map<String, dynamic>> cachedData = [];
+
     try {
       cachedData = await PlaceCacheService.getCachedNearbyPlaces(
         category: widget.apiCategory,
       );
-
-      // Filter by your distance slider limit safely supporting alternate keys
-      cachedData = cachedData.where((place) {
-        final double distance =
-            ((place['distance'] ?? place['dist']) as num?)?.toDouble() ?? 0.0;
-        return distance <= selectedDistance;
-      }).toList();
     } catch (cacheError) {
       print('Cache read error: $cacheError');
     }
@@ -208,14 +260,23 @@ class _ResultScreenState extends State<ResultScreen> {
 
     setState(() {
       places = cachedData.take(selectedLimit).toList();
+
       isLoading = false;
-      isOffline =
-          places.isNotEmpty; // Ensures banner activates when cache exists
+
+      // TRUE = saved/cache data is being displayed.
+      isOffline = true;
+
+      // Internet status itself is not important here.
+      // We are explicitly in saved mode.
     });
   }
 
+  // ------------------------------------------------------------
+  // SHOW BOTTOM WARNING
+  // ------------------------------------------------------------
   void _showBottomWarning(String message) {
     ScaffoldMessenger.of(context).clearSnackBars();
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -225,19 +286,23 @@ class _ResultScreenState extends State<ResultScreen> {
     );
   }
 
+  // ------------------------------------------------------------
+  // REFRESH
+  //
+  // Refresh always tries to obtain fresh data.
+  // If that fails, _fetchNearbyPlaces() falls back to cache.
+  // ------------------------------------------------------------
   Future<void> _refreshLocation() async {
     if (isRefreshing) return;
+
     setState(() => isRefreshing = true);
+
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        if (mounted) {
-          _showBottomWarning('Please turn on location.');
-        }
-      }
       await _fetchNearbyPlaces();
     } finally {
-      if (mounted) setState(() => isRefreshing = false);
+      if (mounted) {
+        setState(() => isRefreshing = false);
+      }
     }
   }
 
@@ -256,12 +321,16 @@ class _ResultScreenState extends State<ResultScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // --------------------------------------------------
               // HEADER
+              // --------------------------------------------------
               Row(
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                    ),
                     color: AppColors.darkText,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -281,22 +350,30 @@ class _ResultScreenState extends State<ResultScreen> {
 
               const SizedBox(height: 16),
 
-              // OFFLINE BANNER (Only shows when displaying cached data)
+              // --------------------------------------------------
+              // SAVED / CACHE BANNER
+              // --------------------------------------------------
               if (isOffline && places.isNotEmpty)
                 Container(
                   margin: const EdgeInsets.only(bottom: 16),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primaryTeal.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                        color: AppColors.primaryTeal.withOpacity(0.4)),
+                      color: AppColors.primaryTeal.withOpacity(0.4),
+                    ),
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.bookmark,
-                          color: AppColors.primaryTeal, size: 20),
+                      Icon(
+                        Icons.bookmark,
+                        color: AppColors.primaryTeal,
+                        size: 20,
+                      ),
                       SizedBox(width: 8),
                       Text(
                         'Saved from your recent visits',
@@ -310,44 +387,67 @@ class _ResultScreenState extends State<ResultScreen> {
                   ),
                 ),
 
+              // --------------------------------------------------
               // FILTER DROPDOWNS
+              //
+              // Distance filter is ONLY meaningful for fresh
+              // results, so hide it in saved mode.
+              // --------------------------------------------------
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.cardBgColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<int>(
-                          value: selectedDistance,
-                          isExpanded: true,
-                          style: AppTextStyles.categorySubtitle(context),
-                          items: const [
-                            DropdownMenuItem(
-                                value: 1000, child: Text('Within 1 km')),
-                            DropdownMenuItem(
-                                value: 5000, child: Text('Within 5 km')),
-                            DropdownMenuItem(
-                                value: 10000, child: Text('Within 10 km')),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() => selectedDistance = val);
-                              _fetchNearbyPlaces();
-                            }
-                          },
+                  // DISTANCE DROPDOWN
+                  if (!isOffline)
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.cardBgColor,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<int>(
+                            value: selectedDistance,
+                            isExpanded: true,
+                            style: AppTextStyles.categorySubtitle(context),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 1000,
+                                child: Text('Within 1 km'),
+                              ),
+                              DropdownMenuItem(
+                                value: 5000,
+                                child: Text('Within 5 km'),
+                              ),
+                              DropdownMenuItem(
+                                value: 10000,
+                                child: Text('Within 10 km'),
+                              ),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() {
+                                  selectedDistance = val;
+                                });
+
+                                _fetchNearbyPlaces();
+                              }
+                            },
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
+
+                  if (!isOffline) const SizedBox(width: 12),
+
+                  // LIMIT DROPDOWN
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.cardBgColor,
                         borderRadius: BorderRadius.circular(12),
@@ -358,15 +458,37 @@ class _ResultScreenState extends State<ResultScreen> {
                           isExpanded: true,
                           style: AppTextStyles.categorySubtitle(context),
                           items: const [
-                            DropdownMenuItem(value: 1, child: Text('Show 1')),
-                            DropdownMenuItem(value: 3, child: Text('Show 3')),
-                            DropdownMenuItem(value: 5, child: Text('Show 5')),
-                            DropdownMenuItem(value: 10, child: Text('Show 10')),
+                            DropdownMenuItem(
+                              value: 1,
+                              child: Text('Show 1'),
+                            ),
+                            DropdownMenuItem(
+                              value: 3,
+                              child: Text('Show 3'),
+                            ),
+                            DropdownMenuItem(
+                              value: 5,
+                              child: Text('Show 5'),
+                            ),
+                            DropdownMenuItem(
+                              value: 10,
+                              child: Text('Show 10'),
+                            ),
                           ],
                           onChanged: (val) {
                             if (val != null) {
-                              setState(() => selectedLimit = val);
-                              _fetchNearbyPlaces();
+                              setState(() {
+                                selectedLimit = val;
+                              });
+
+                              if (isOffline) {
+                                // In saved mode, only change the
+                                // number of cached places displayed.
+                                _loadFromCacheOrEmpty();
+                              } else {
+                                // In fresh mode, ask backend again.
+                                _fetchNearbyPlaces();
+                              }
                             }
                           },
                         ),
@@ -378,13 +500,17 @@ class _ResultScreenState extends State<ResultScreen> {
 
               const SizedBox(height: 16),
 
+              // --------------------------------------------------
               // RESULTS COUNT + REFRESH
+              // --------------------------------------------------
               if (!isLoading)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '${places.length} places found nearby',
+                      isOffline
+                          ? '${places.length} saved places'
+                          : '${places.length} places found nearby',
                       style: AppTextStyles.categorySubtitle(context),
                     ),
                     IconButton(
@@ -393,7 +519,9 @@ class _ResultScreenState extends State<ResultScreen> {
                           ? const SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
                             )
                           : const Icon(Icons.refresh_rounded),
                       color: AppColors.primaryTeal,
@@ -404,19 +532,24 @@ class _ResultScreenState extends State<ResultScreen> {
 
               const SizedBox(height: 16),
 
+              // --------------------------------------------------
               // PLACES LIST
+              // --------------------------------------------------
               Expanded(
                 child: isLoading
-                    ? const Center(child: CustomLoadingPin())
+                    ? const Center(
+                        child: CustomLoadingPin(),
+                      )
                     : places.isEmpty
                         ? Center(
                             child: Text(
-                              // If online, show the friendly suggestion. If offline, keep the offline message.
-                              hasInternet
-                                  ? 'No places found nearby. Try expanding your distance or limit dropdowns above! '
-                                  : 'No offline places saved for this category.',
+                              isOffline
+                                  ? 'No saved places available for this category.'
+                                  : 'No places found nearby. Try expanding your distance or limit dropdowns above!',
                               textAlign: TextAlign.center,
-                              style: AppTextStyles.categorySubtitle(context),
+                              style: AppTextStyles.categorySubtitle(
+                                context,
+                              ),
                             ),
                           )
                         : ListView.separated(
@@ -426,6 +559,7 @@ class _ResultScreenState extends State<ResultScreen> {
                                 const SizedBox(height: 12),
                             itemBuilder: (context, index) {
                               final place = places[index];
+
                               final double? distanceKm =
                                   place['distance_km'] != null
                                       ? (place['distance_km'] as num).toDouble()
@@ -437,7 +571,9 @@ class _ResultScreenState extends State<ResultScreen> {
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) => PlaceDetails(
-                                        place: Map<String, dynamic>.from(place),
+                                        place: Map<String, dynamic>.from(
+                                          place,
+                                        ),
                                       ),
                                     ),
                                   );
@@ -460,18 +596,28 @@ class _ResultScreenState extends State<ResultScreen> {
                                           Expanded(
                                             child: Text(
                                               formatDisplayText(
-                                                  place['name'].toString()),
+                                                place['name'].toString(),
+                                              ),
                                               style:
                                                   AppTextStyles.categoryTitle(
-                                                      context),
+                                                context,
+                                              ),
                                             ),
                                           ),
-                                          if (distanceKm != null)
+
+                                          // ------------------------------------------------
+                                          // DISTANCE TAG
+                                          //
+                                          // ONLY displayed for fresh API data.
+                                          // Cached distance is intentionally hidden.
+                                          // ------------------------------------------------
+                                          if (!isOffline && distanceKm != null)
                                             Container(
                                               padding:
                                                   const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 4),
+                                                horizontal: 8,
+                                                vertical: 4,
+                                              ),
                                               decoration: BoxDecoration(
                                                 color: AppColors.primaryTeal
                                                     .withOpacity(0.1),
@@ -491,14 +637,18 @@ class _ResultScreenState extends State<ResultScreen> {
                                             ),
                                         ],
                                       ),
+
                                       const SizedBox(height: 6),
+
+                                      // DESCRIPTION
                                       if (place['description'] != null)
                                         Text(
                                           place['description'].toString(),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                           style: AppTextStyles.categorySubtitle(
-                                              context),
+                                            context,
+                                          ),
                                         ),
                                     ],
                                   ),
