@@ -12,10 +12,46 @@ class HomeScreen extends StatelessWidget {
     if (!context.mounted) return;
 
     if (!serviceEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please turn on location services.')),
+      final shouldOpenSettings = await showDialog<bool>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('Location is turned off'),
+            content: const Text(
+              'GeoGuide uses your location to find places near you. '
+              'Would you like to turn on location services?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context, false);
+                },
+                child: const Text('Not Now'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context, true);
+                },
+                child: const Text('Turn On Location'),
+              ),
+            ],
+          );
+        },
       );
-      await Geolocator.openLocationSettings();
+
+      if (shouldOpenSettings == true) {
+        await Geolocator.openLocationSettings();
+      }
+
+      if (!context.mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const CategoriesScreen(),
+        ),
+      );
+
       return;
     }
 

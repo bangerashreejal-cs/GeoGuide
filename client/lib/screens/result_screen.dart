@@ -50,7 +50,7 @@ class _ResultScreenState extends State<ResultScreen> {
     _serviceStatusStreamSubscription =
         Geolocator.getServiceStatusStream().listen((ServiceStatus status) {
       if (status == ServiceStatus.disabled) {
-        _showBottomWarning('Location services were turned off.');
+        _showBottomWarning('Please turn on location.');
 
         // Location is no longer available, so switch to
         // saved mode instead of clearing the screen.
@@ -143,6 +143,14 @@ class _ResultScreenState extends State<ResultScreen> {
 
         if (mounted) {
           _showBottomWarning('No internet connection.');
+        }
+
+        // Even without internet, check whether location is also off.
+        // Saved places do not require location.
+        final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+        if (!serviceEnabled && mounted) {
+          _showBottomWarning('Please turn on location.');
         }
 
         // No internet → use saved places.
