@@ -203,7 +203,9 @@ class PlaceDetails extends StatelessWidget {
                           try {
                             Position position =
                                 await Geolocator.getCurrentPosition(
-                              desiredAccuracy: LocationAccuracy.high,
+                              locationSettings: const LocationSettings(
+                                accuracy: LocationAccuracy.high,
+                              ),
                             );
                             currentLat = position.latitude;
                             currentLng = position.longitude;

@@ -13,6 +13,9 @@ class GeoGuideApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'GeoGuide',
+      theme: ThemeData(
+        fontFamily: 'Poppins',
+      ),
       home: const HomeScreen(),
     );
   }

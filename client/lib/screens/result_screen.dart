@@ -1,6 +1,7 @@
-import 'dart:io';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'theme.dart';
 import '../api_services.dart';
@@ -43,20 +44,32 @@ class _ResultScreenState extends State<ResultScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchNearbyPlaces();
+
+    // Start the initial fetch after the first frame so that
+    // SnackBars and other inherited widgets are available.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _fetchNearbyPlaces();
+      }
+    });
 
     // Listen for location services being turned off while
     // the user is already on this screen.
-    _serviceStatusStreamSubscription =
-        Geolocator.getServiceStatusStream().listen((ServiceStatus status) {
-      if (status == ServiceStatus.disabled) {
-        _showBottomWarning('Please turn on location.');
+    //
+    // getServiceStatusStream() is not supported on Flutter Web,
+    // so only use it on Android/iOS/other non-Web platforms.
+    if (!kIsWeb) {
+      _serviceStatusStreamSubscription =
+          Geolocator.getServiceStatusStream().listen((ServiceStatus status) {
+        if (status == ServiceStatus.disabled) {
+          _showBottomWarning('Please turn on location.');
 
-        // Location is no longer available, so switch to
-        // saved mode instead of clearing the screen.
-        _loadFromCacheOrEmpty();
-      }
-    });
+          // Location is no longer available, so switch to
+          // saved mode instead of clearing the screen.
+          _loadFromCacheOrEmpty();
+        }
+      });
+    }
   }
 
   @override
@@ -107,10 +120,9 @@ class _ResultScreenState extends State<ResultScreen> {
   // ------------------------------------------------------------
   Future<bool> _checkInternetConnection() async {
     try {
-      final result = await InternetAddress.lookup('example.com')
-          .timeout(const Duration(seconds: 5));
+      final result = await Connectivity().checkConnectivity();
 
-      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+      return !result.contains(ConnectivityResult.none);
     } catch (_) {
       return false;
     }
