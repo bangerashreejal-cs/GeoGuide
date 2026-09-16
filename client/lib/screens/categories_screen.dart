@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
 import 'result_screen.dart';
+import 'favorite_screen.dart';
 
 class CategoriesScreen extends StatelessWidget {
   const CategoriesScreen({super.key});
@@ -67,8 +68,33 @@ class CategoriesScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  SizedBox(
-                    width: isPhone ? 24 : 40,
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const FavoritesScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(
+                          Icons.bookmark_border_rounded,
+                        ),
+                        color: AppColors.primaryTeal,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        tooltip: 'Favorites',
+                      ),
+                      Text(
+                        'Bookmarked',
+                        style: AppTextStyles.categorySubtitle(context).copyWith(
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

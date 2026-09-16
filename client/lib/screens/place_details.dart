@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'theme.dart';
 import 'formatters.dart';
 import 'map_screen.dart';
+import '../favorite_button.dart';
 
 class PlaceDetails extends StatelessWidget {
   final Map<String, dynamic> place;
@@ -82,9 +83,7 @@ class PlaceDetails extends StatelessWidget {
                       ),
                     ),
                   ),
-                  SizedBox(
-                    width: isPhone ? 24 : 40,
-                  ),
+                  FavoriteButton(place: place),
                 ],
               ),
 
